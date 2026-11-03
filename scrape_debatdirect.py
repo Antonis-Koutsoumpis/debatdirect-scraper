@@ -16,8 +16,9 @@ Materiaal Tweede Kamer". Running this script means you accept those terms,
 just as ticking the box in the website's download dialog does.
 
 Usage (see README.md for more):
-    python scrape_debatdirect.py --names politicians.csv --out "C:/path/to/folder"
-    python scrape_debatdirect.py --names politicians.csv --out out --only "Rob Jetten" --dry-run
+    py scrape_debatdirect.py --names Names_to_scrape.csv --out .
+    py scrape_debatdirect.py --names Names_to_scrape.csv --out . --only "Rob Jetten" --dry-run
+    py scrape_debatdirect.py --names Names_to_scrape.csv --out "C:\\path\\to\\folder"
 """
 
 from __future__ import annotations
@@ -448,7 +449,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--names", required=True, help="CSV with a full_name column")
-    parser.add_argument("--out", required=True, help="folder for videos and metadata")
+    parser.add_argument("--out", required=True,
+                        help="folder for videos and metadata; use . (a dot) for the current folder")
     parser.add_argument("--start", default=DEFAULT_START, help="first debate date (YYYY-MM-DD)")
     parser.add_argument("--end", default=DEFAULT_END, help="last debate date (YYYY-MM-DD)")
     parser.add_argument("--only", action="append",

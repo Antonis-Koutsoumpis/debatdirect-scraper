@@ -18,16 +18,43 @@ The tool talks to the same public services the Debat Direct website uses, so it 
 
 ## Installation (Windows)
 
-1. Install Python 3.9 or newer from [python.org](https://www.python.org/downloads/) (tick "Add Python to PATH").
-2. Open a terminal in this folder and run:
+### 1. Install Python
+
+Open Command Prompt (Start → type `cmd` → Enter) and check whether Python is already installed:
 
 ```
-pip install -r requirements.txt
+py --version
 ```
 
-## Usage
+If this shows a version (3.9 or newer), go to step 2.
 
-The input CSV needs a `full_name` column (other columns are ignored), for example:
+If not, download the **Windows installer (64-bit)** from [python.org/downloads/windows](https://www.python.org/downloads/windows/), run it, tick **"Add python.exe to PATH"**, and click **Install Now**. Then close Command Prompt, open a new one, and run `py --version` again.
+
+> **Use `py`, not `python` or `pip`.** On many Windows laptops only the `py` launcher works. `python` may answer *"Python was not found"* and `pip` may be *"not recognized"*. Every command in this README therefore starts with `py`.
+
+### 2. Install the required packages
+
+```
+py -m pip install -r requirements.txt
+```
+
+If you only have the script and not `requirements.txt`, install the packages by name:
+
+```
+py -m pip install pandas requests "python-socketio[client]"
+```
+
+### 3. Put the files in one folder
+
+The folder needs at least:
+
+```
+Tweede_kamer_scrap/
+├── scrape_debatdirect.py
+└── Names_to_scrape.csv
+```
+
+The names CSV needs a `full_name` column (other columns are ignored). Commas, semicolons or tabs as separators all work:
 
 ```
 first_name,tussenvoegsel,last_name,full_name
@@ -35,45 +62,122 @@ Roy,van,Aalst,Roy van Aalst
 Max,,Aardema,Max Aardema
 ```
 
-**See what would be downloaded, without downloading anything:**
+If the CSV is only on GitHub, download it into the folder:
 
 ```
-python scrape_debatdirect.py --names politicians.csv --out "C:\path\to\output" --only "Rob Jetten" --dry-run
+curl -L -o Names_to_scrape.csv https://raw.githubusercontent.com/Antonis-Koutsoumpis/debatdirect-scraper/main/Names_to_scrape.csv
 ```
 
-This writes `clips_plan_dryrun.csv` in the output folder.
+For a private repository, use **Download raw file** on the file's GitHub page instead and move the file into the folder.
 
-**Download:**
+## Usage
+
+Every session starts by going to the project folder in Command Prompt:
 
 ```
-python scrape_debatdirect.py --names politicians.csv --out "C:\path\to\output"
+cd "C:\Users\<you>\path\to\Tweede_kamer_scrap"
 ```
 
-Options:
+### About `--out .`
+
+`--out` sets where the videos and metadata are saved, and it is required. A dot (`.`) means **the current folder**. **Put a space between `--out` and the dot:**
+
+| Typed | Result |
+|---|---|
+| `--out .` | ✅ saves in the current folder |
+| `--out.` | ❌ error: *the following arguments are required: --out* |
+| `--out` (nothing after it) | ❌ error: *argument --out: expected one argument* |
+
+To save somewhere else, give a full path in quotes, e.g. `--out "C:\Users\<you>\Tweede_kamer_videos"`. A folder outside OneDrive or Dropbox avoids syncing tens of gigabytes of video.
+
+### 1. Dry run: plan the clips, download nothing
+
+```
+py scrape_debatdirect.py --names Names_to_scrape.csv --out . --only "Rob Jetten" --dry-run
+```
+
+This prints the planned clips and writes them to `clips_plan_dryrun.csv`. **No videos are downloaded.** Use it to check the selection before a long run.
+
+### 2. Test download for one politician
+
+```
+py scrape_debatdirect.py --names Names_to_scrape.csv --out . --only "Rob Jetten"
+```
+
+The name after `--only` must match the `full_name` column exactly. Each clip can take from 30 seconds to a few minutes, because the Tweede Kamer server cuts the fragment before it is downloaded.
+
+### 3. Full run
+
+```
+py scrape_debatdirect.py --names Names_to_scrape.csv --out .
+```
+
+### Options
 
 | Option | Meaning |
 |---|---|
-| `--start`, `--end` | Date range (default `2017-03-15` to `2025-10-28`) |
+| `--names FILE` | CSV with a `full_name` column (required) |
+| `--out FOLDER` | Where videos and metadata go; `.` = current folder (required) |
 | `--only "Name"` | Process only this politician (can be repeated) |
 | `--limit N` | Process only the first N politicians |
+| `--start`, `--end` | Date range (default `2017-03-15` to `2025-10-28`) |
 | `--dry-run` | Plan the clips without downloading |
 
-The run can be stopped at any time (Ctrl+C). Running the same command again continues where it stopped: finished clips are skipped, and politicians who already have 20 minutes are skipped.
+## Pausing and resuming
+
+The run can be stopped at any time and **continues where it left off; it does not start over.**
+
+**To pause:** press **Ctrl+C** and wait for *"Stopped. Run the same command again to continue where it left off."* You can then close the laptop.
+
+**To resume:** open Command Prompt and run:
+
+```
+cd "C:\Users\<you>\path\to\Tweede_kamer_scrap"
+py scrape_debatdirect.py --names Names_to_scrape.csv --out .
+```
+
+When it resumes:
+
+- downloaded clips are skipped;
+- politicians who already have 20 minutes or more are skipped;
+- clips marked `failed` (for example after a network drop or closing the lid mid-download) are retried.
+
+If the laptop goes to sleep during a download without Ctrl+C first, that clip may be retried at 540p instead of 720p. Check the `quality` column in `clips_metadata.csv`. For long runs, keep the laptop plugged in and set sleep to "Never" (Settings → System → Power → Screen and sleep).
 
 ## Output
 
 ```
-output/
+Tweede_kamer_scrap/
 ├── clips_metadata.csv
+├── clips_plan_dryrun.csv      (only after a dry run)
 └── videos/
     └── Rob_Jetten/
         ├── Rob_Jetten_2019-07-03_210633.mp4
         └── ...
 ```
 
-`clips_metadata.csv` has one row per clip: politician, debate ID, name and date, the politician's role that day, turn and clip start/end times (time of day, with time zone), clip length, quality, file path and notes (e.g. merged or trimmed). Clips that could not be downloaded are listed with status `failed`, so the run can be repeated later for those.
+**File names** have the form `Politician_YYYY-MM-DD_HHMMSS.mp4`:
+
+- `Rob_Jetten` is the politician;
+- `2019-07-03` is the date of the debate;
+- `210633` is the time of day the politician **starts speaking** (21:06:33). The clip itself starts 20 seconds earlier because of the buffer.
+
+**`clips_metadata.csv`** has one row per clip: politician, status (`ok` or `failed`), file path, debate ID, name and date, the politician's role that day, the turn and clip start/end times (time of day, with time zone), clip length in seconds, video quality, and notes (e.g. *merged with following turn*, *cut to first 12 min*, *trimmed to stay under 22 min*). Open it in Excel to follow progress.
+
+Expect roughly 300–400 MB of video per politician.
 
 The metadata file also makes the dataset reproducible without sharing the videos: the debate IDs and exact times are enough to download the same fragments again.
+
+## Troubleshooting
+
+| Message | Fix |
+|---|---|
+| `Python was not found` | Use `py` instead of `python`, or install Python (see Installation). |
+| `'pip' is not recognized` | Use `py -m pip install …` instead of `pip install …`. |
+| `the following arguments are required: --out` / `expected one argument` | Add `--out .` with a space before the dot. |
+| `Total number of politicians: 0` | The name after `--only` doesn't match the `full_name` column exactly, or the CSV has no `full_name` column. |
+| `ModuleNotFoundError` | Packages are missing; run the install command in step 2 again. |
+| `failed at 1280x720: …` | Usually a temporary server or network problem. Run the same command again later; failed clips are retried. |
 
 ## Licence and terms of use
 
