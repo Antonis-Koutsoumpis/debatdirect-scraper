@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+# Downloaded footage and run output stay local
+videos/
+*.mp4
+*.part
+clips_metadata.csv
+clips_plan_dryrun.csv

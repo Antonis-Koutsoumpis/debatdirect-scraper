@@ -1,0 +1,3 @@
+pandas>=1.3
+requests>=2.25
+python-socketio[client]>=5.0
